@@ -1,0 +1,36 @@
+{
+
+	//data select
+	"dataSel_slot19":  { "File": "fang_dataSel.png", "Rect": "7,7,40,36", "Center": "20,36" },
+	"dataSel_lifeContinue_slot19":  { "File": "interface.png", "Rect": "18,16,20,40", "Center": "16,-8" },
+	
+	//data select but extra save slots
+	"ESS_Cont_Es19":  { "File": "icons_saveextra.png", "Rect": "40,16,20,24", "Center": "10,24" },
+	"ESS_Life_Es19":  { "File": "icons_saveextra.png", "Rect": "32,0,16,16", "Center": "8,16" },
+	"ESS_Char_Es19":  { "File": "interface.png", "Rect": "38,16,28,39", "Center": "13,39" },
+    "ESS_Zone_Es19_0":  { "File": "shadowfinish.png", "Rect": "0,0,80,56", "Center": "40,28" },
+	"ESS_Zone_Es19_1":  { "File": "shadowfinish.png", "Rect": "80,0,80,56", "Center": "40,28" },
+	"ESS_Zone_Es19_2":  { "File": "shadowfinish.png", "Rect": "160,56,80,56", "Center": "40,28" },
+	
+	//speed shoes
+	"monitor_fang_shoe":  { "File": "fangshoe.png", "Rect": "0,0,16,16", "Center": "8,8" },
+	
+	//cork
+	"cork_fang":  { "File": "cork.png", "Rect": "0,0,9,9", "Center": "4,4" },
+	
+	//dust
+	"dust_0":  { "File": "dust.bmp", "Rect": "0,0,16,16", "Center": "8,8" },
+	"dust_1":  { "File": "dust.bmp", "Rect": "16,0,16,16", "Center": "8,8" },
+	"dust_2":  { "File": "dust.bmp", "Rect": "32,0,16,16", "Center": "8,8" },
+	"dust_3":  { "File": "dust.bmp", "Rect": "48,0,16,16", "Center": "8,8" },
+
+    //bumper of blue spheres
+    "bump_slot19_0x00":  { "File": "bumper.png", "Rect": "0,0,16,16", "Center": "8,8" },
+	"bump_slot19_0x01":  { "File": "bumper.png", "Rect": "24,0,16,16", "Center": "8,8" },
+	"bump_slot19_0x02":  { "File": "bumper.png", "Rect": "48,0,16,16", "Center": "8,8" },
+	"bump_slot19_0x03":  { "File": "bumper.png", "Rect": "72,0,16,16", "Center": "8,8" },
+	"bump_slot19_0x04":  { "File": "bumper.png", "Rect": "96,0,16,16", "Center": "8,8" },
+	"bump_slot19_0x05":  { "File": "bumper.png", "Rect": "120,0,16,16", "Center": "8,8" },
+	"bump_slot19_0x06":  { "File": "bumper.png", "Rect": "144,0,16,16", "Center": "8,8" },
+	"bump_slot19_0x07":  { "File": "bumper.png", "Rect": "168,0,16,16", "Center": "8,8" },
+}
