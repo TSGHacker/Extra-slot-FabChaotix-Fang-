@@ -1,0 +1,101 @@
+{
+	"Metadata":
+	{
+		"Name": "Extra Slot FabChaotix Fang",
+		"Author": "Ianetisxd, RatherNoise, FabChaotix, SmashNinja, & Michael7",
+		"Description": "Fang the Sniper is now playable in S3AIR without overlapping a character with new abilities, like a popgun, and a bounce-like move. His bounce is mapped to X/C, climb to A, and popgun to B.",
+		"ModVersion": "4.0",
+	},
+	"Settings":
+	{
+		"Group1":
+		[
+			{
+				"InternalName": "fang has buddy",
+				"DisplayName": "Partner",
+				"Variable": "hasPartner_Fang",
+				"DefaultValue": "1",
+				"Category": "Gameplay",
+				"Options":
+				{
+					"0": "No",
+					"1": "Yes",
+				}
+			},
+			{
+				"InternalName": "fang has shields",
+				"DisplayName": "Has Shields",
+				"Variable": "fangShields",
+				"DefaultValue": "1",
+				"Category": "Gameplay",
+				"Options":
+				{
+					"0": "No",
+					"1": "Yes",
+				}
+			},
+			{
+				"InternalName": "fang become stt16-bit",
+				"DisplayName": "Fang's Other Ability",
+				"Variable": "fangAbility",
+				"DefaultValue": "0",
+				"Category": "Gameplay",
+				"Options":
+				{
+					"0": "Tail-Bounce",
+					"1": "Triple-Jump",
+				}
+			},
+			{
+				"InternalName": "cork can die",
+				"DisplayName": "Corks Can Be Damaged",
+				"Variable": "corkThreat",
+				"DefaultValue": "1",
+				"Category": "Popgun",
+				"Options":
+				{
+					"0": "No",
+					"1": "Yes",
+				}
+			},
+			{
+				"InternalName": "cork can pierce",
+				"DisplayName": "Corks Can Pierce Things",
+				"Variable": "corkPierce",
+				"DefaultValue": "0",
+				"Category": "Popgun",
+				"Options":
+				{
+					"0": "No",
+					"1": "Yes",
+				}
+			},
+			{
+				"InternalName": "fang has different color",
+				"DisplayName": "Palette",
+				"Variable": "FangPalette",
+				"DefaultValue": "0",
+				"Category": "Appearance",
+				"Options":
+				{
+					"0": "Original",
+					"1": "STT16-Bit",
+					"2": "SRB2",
+					"3": "Sonic the Fighters",
+				}
+			},
+			{
+				"InternalName": "fang has different shoes",
+				"DisplayName": "Speed Shoes Icon",
+				"Variable": "FangShoes",
+				"DefaultValue": "1",
+				"Category": "Appearance",
+				"Options":
+				{
+					"0": "Default",
+					"1": "Unique"
+				}
+			},
+		]
+	}
+}
