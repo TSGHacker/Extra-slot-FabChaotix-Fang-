@@ -1,0 +1,33 @@
+//# address-hook(0x063446) end(0x063460)
+function void fn063446()
+{
+	if (XtraChar != 3)
+	{
+		base.fn063446()
+		return
+	}
+	
+	checkpoint.number = 1
+	checkpoint.x = 0x06f4
+	checkpoint.y = 0x09ec
+#if STANDALONE
+	if (global.zone_act == 0x0000)
+	{
+		if (Game.getSetting(SETTING_LEVELLAYOUTS) == 2)
+		{
+			checkpoint.x = 0x1830
+			checkpoint.y = 0x0119
+		}
+		else
+		{
+			checkpoint.x = 0x1460
+			checkpoint.y = 0x041a
+		}
+	}
+#endif
+	Checkpoint.SaveCurrentState()
+	checkpoint.time = 0
+
+	level.restart = 1
+	Object.TriggerUnloading()
+}
