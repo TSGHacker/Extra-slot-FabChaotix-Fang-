@@ -1,0 +1,1496 @@
+global bool Fang.bounce
+global u8 Fang.coolDown
+global u8 Fang.corkCount
+global u8 Fang.jumpCount
+global bool Fang.Climb
+
+global u8 fangShields
+global u8 corkThreat
+global u8 corkPierce
+global u8 fangAbility
+
+//# address-hook(0x006a76) end(0x006bd6)
+function void InitializeGameCharacters()
+{
+	if (global.xtrachar == 0x013)
+	{
+		Fang.bounce = false
+		Fang.corkCount = 0
+		Fang.coolDown = 20
+		Fang.Climb = false
+		Fang.jumpCount = 0
+		D5c = 0
+		D2c = 0
+		D3c = 0
+		D4c = 0
+		A0cork = 0
+		D5c2 = 0
+		D2c2 = 0
+		D3c2 = 0
+		D4c2 = 0
+		A0cork2 = 0
+	}
+	
+	base.InitializeGameCharacters()
+	return
+}
+
+// Sets physics in Competition mode for Extra characters.
+function void ExtraChar.CompetitionMode.Character.setupPhysics(u8 xtrachar, u16 speedcap, u16 acceleration, u16 deceleration)
+{
+	// Fang's physics
+	if (xtrachar == 19)
+	{
+		speedcap = 0x0600
+		acceleration = 0x0015
+		deceleration = 0x0200
+		// DONT RETURN
+	}
+
+	// Call the base function
+	base.ExtraChar.CompetitionMode.Character.setupPhysics(xtrachar, speedcap, acceleration, deceleration)
+}
+
+function void KnucklesPressedJumpInMidAir()
+{
+	if (!competition_mode.active && (global.xtrachar != 0x013 || char.character != CHARACTER_KNUCKLES) || (competition_mode.active && char.character != 21))
+	{
+		base.KnucklesPressedJumpInMidAir()
+		return
+	}
+	
+	Fang.bounce = false
+	
+	if (control.player1.state & CONTROL_B)
+	{
+		if (Fang.coolDown >= 20)
+		{
+			spawnCork()
+		}
+	}
+	
+	if ((control.player1.state & CONTROL_C) == false && (control.player1.state & CONTROL_B) == false && (control.player1.state & CONTROL_A) && Fang.Climb && fangAbility == 0 || (control.player1.state & CONTROL_C) && (control.player1.state & CONTROL_B) == false && (control.player1.state & CONTROL_A) == false && Fang.Climb && fangAbility == 1)
+	{
+		// Start climbing
+		Fang.Climb = false
+		char.state.both = 0x2020
+		char.flags &= ~(char.flag.ROLLING)
+		char.hitbox_extends.y = 10
+		char.hitbox_extends.x = 10
+		char.double_jump_state = 1
+		char.groundspeed = 0x400
+		knuckles.glideclimbstate = 0x02
+		if (char.flags & char.flag.FACING_LEFT)
+		{
+			knuckles.glide_direction = -0x80
+		}
+		else
+		{
+			knuckles.glide_direction = 0
+		}
+	}
+	else if ((control.player1.state & CONTROL_A) && (((char.bonus_effect & char.bonus.ANY_SHIELD) == 0 || fangShields == 0) || super.active) && (Fang.jumpCount < 2 && fangAbility == 1))
+	{
+		++Fang.jumpCount
+		char.state = char.state.STRAIGHTJUMP
+		char.flags |= (char.flag.IN_AIR | char.flag.ROLLING)
+		char.flags &= ~char.flag.PUSHING
+		char.velocity.y = -0x580
+		char.jumping = 1
+		createDustExplos()
+		playSound(0x4d)
+	}
+	else if ((control.player1.state & CONTROL_C) && (char.bonus_effect & char.bonus.SHIELD_FIRE) && !(char.bonus_effect & char.bonus.INVINCIBLE) && fangShields == 1)
+	{
+		u8[0xffffcd08] = 1		// That's 0x20 inside the shield object at 0xffffcce8
+		char.double_jump_state = 1
+
+		s16 vx = 0x800
+		if (char.flags & char.flag.FACING_LEFT)
+			vx = -vx
+
+		char.velocity.x = vx
+		char.velocity.y = 0
+		char.groundspeed = vx
+		camera.locktime.player1 = 0x2000
+		ClearPositionBackup()
+		playSound(SFX_FIRESHIELDDASH)
+	}
+	else if ((control.player1.state & CONTROL_C) && (char.bonus_effect & char.bonus.SHIELD_LIGHTNING) && !(char.bonus_effect & char.bonus.INVINCIBLE) && fangShields == 1)
+	{
+		u8[0xffffcd08] = 1
+		char.double_jump_state = 1
+
+		char.velocity.y = -0x580
+		char.jumping = 0
+		playSound(SFX_LIGHTNINGJUMP)
+	}
+	else if ((control.player1.state & CONTROL_C) && (char.bonus_effect & char.bonus.SHIELD_BUBBLE) && !(char.bonus_effect & char.bonus.INVINCIBLE) && fangShields == 1)
+	{
+		u8[0xffffcd08] = 1
+		char.double_jump_state = 1
+
+	#if STANDALONE
+		if (!Game.getSetting(SETTING_BUBBLE_SHIELD_BOUNCE))
+	#endif
+		{
+			char.velocity.x = 0
+		}
+
+		char.velocity.y = 0x800
+		char.groundspeed = 0
+		playSound(SFX_BUBBLEBOUNCE)
+	}
+	else
+	{
+		// Insta bubble-Shield
+		if ((control.player1.state & CONTROL_C) && (((char.bonus_effect & char.bonus.ANY_SHIELD) == 0 || fangShields == 0) || super.active) && fangAbility == 0)
+		{
+			D1.s16 = s8(char.hitbox_extends.y - char.hitbox.default.y)
+			D1.s16 = -D1.s16
+			char.position.y.u16 += D1.s16
+			Fang.bounce = true
+			char.state = char.state.KNUX_STANDUP
+			char.hitbox_extends.x = char.hitbox.default.x
+			char.hitbox_extends.y = char.hitbox.default.y
+			char.velocity.y = 0x870
+			char.double_jump_state = 1
+			playSound(0xa0)
+		}
+	}
+}
+
+function void Character.updateUprightOnGround()
+{
+	if (!competition_mode.active && (global.xtrachar != 0x013 || char.character != CHARACTER_KNUCKLES) || (competition_mode.active && char.character != 21))
+	{
+		base.Character.updateUprightOnGround()
+		return
+	}
+	
+	if (Character.UpdateSpindash())
+		return
+
+#if STANDALONE
+	if (char.character == CHARACTER_SONIC && Game.getSetting(SETTING_SUPER_PEELOUT))
+	{
+		if (Character.updateSuperPeelout())
+			return
+	}
+#endif
+
+	if (control.player1.state & CONTROL_B)
+	{
+		if (Fang.coolDown >= 20)
+		{
+			spawnCork()
+		}
+	}
+	
+	Fang.jumpCount = 0
+	Fang.Climb = false
+
+	if (control.pad1.pressed & CONTROL_C) || (control.pad1.pressed & CONTROL_A)
+	{
+		if (Character.CheckStartJump())
+			return
+	}
+
+	Character.UpdateUprightSlopeEffect()
+	Character.updateUprightOnGroundInner()
+	Character.CheckForStartRolling()
+
+	Character.sharedUpdateOnGround()
+}
+
+//# address-hook(0x00fe8e) end(0x00ff04)
+function void Character.CheckCollisionsWithDynamicObjects()
+{
+	if (!competition_mode.active && (global.xtrachar != 0x013 || char.character != CHARACTER_KNUCKLES) || (competition_mode.active && char.character != 21))
+	{
+		base.Character.CheckCollisionsWithDynamicObjects()
+		return
+	}
+	SonicUpdateRingCollection()
+	UpdateShieldDeflecting()
+
+	bool hasInstaShield = false
+	if ((char.bonus_effect & 0x73) == 0)
+	{
+		hasInstaShield = (char.double_jump_state == 1 && Fang.bounce)
+	}
+
+	if (hasInstaShield)
+	{
+		// Insta bubble-Shield makes Fang briefly invincible and increases his hitbox
+		u8 oldBonusEffect = char.bonus_effect
+		char.bonus_effect |= char.bonus.INVINCIBLE
+	#if STANDALONE
+		// Also make Insta bubble-Shield bounce off projectiles
+		char.bonus_effect |= char.bonus.ANY_SHIELD
+	#endif
+
+		D2.u16 = char.position.x.u16 - 0x18
+		D3.u16 = char.position.y.u16 - 0x18
+		D4.u16 = 0x30
+		D5.u16 = 0x30
+		Character.CheckCollisionsWithDynamicObjects_partial()
+
+		char.bonus_effect = oldBonusEffect
+	}
+	else
+	{
+		D5 = char.hitbox_extends.y - 3
+		D2 = char.position.x.u16 - 8
+		D3 = char.position.y.u16 - D5.u16
+		D4 = 16
+		D5 *= 2
+		Character.CheckCollisionsWithDynamicObjects_partial()
+	}
+}
+
+function void Character.LandingOnGroundResetState()
+{
+	if (!competition_mode.active && (global.xtrachar != 0x013 || char.character != CHARACTER_KNUCKLES) || (competition_mode.active && char.character != 21))
+	{
+		base.Character.LandingOnGroundResetState()
+		return
+	}
+	
+	char.flags &= ~char.flag.IN_AIR
+	char.flags &= ~char.flag.PUSHING
+	char.flags &= ~char.flag.CONTROL_LOCK
+	char.jumping = 0
+	score.bonus_counter = 0		// No more increasing bonuses after hitting the ground
+	char.rotation.x = 0
+	u8[A0 + 0x2d] = 0
+	u8[A0 + 0x30] = 0
+	char.look_up_down_timer = 0
+
+	// Check for double jump state
+	if (char.double_jump_state != 0)
+	{
+		if (Fang.bounce && (((char.bonus_effect & char.bonus.ANY_SHIELD) == 0 || fangShields == 0) || super.active))
+		{
+			FangTailBounce()
+		}
+		else if (char.bonus_effect & char.bonus.SHIELD_BUBBLE && fangShields == 1)
+		{
+			if( (char.bonus_effect & char.bonus.INVINCIBLE) == 0)
+			{
+				SonicLandingBubbleBounce()
+			}
+		}
+		
+		char.double_jump_state = 0
+	}
+	
+	if (control.player1.state & CONTROL_A) && (char.state >= 0x20)
+	{
+		char.state = char.state.KNUX_STANDUP
+	}
+	
+	Fang.Climb = false
+}
+
+function void FangTailBounce()
+{
+	s16 force = (char.flags & char.flag.UNDERWATER) ? 0x4c0 : 0x7c0
+
+	s16 vx = mainchar.groundhit.velocity.x
+	s16 vy = mainchar.groundhit.velocity.y
+	u8 moveAngle = lookupAngleByVector(vx, vy)
+	u8 reflectedAngle = char.rotation * 2 - moveAngle
+	char.velocity.y = (s32(lookupSin(reflectedAngle)) * force) >> 8
+	
+	char.state = char.state.STRAIGHTJUMP
+	char.flags |= (char.flag.IN_AIR | char.flag.ROLLING)
+	char.flags &= ~char.flag.PUSHING
+	char.jumping = 1
+	char.on_convex_surface = 0
+	char.hitbox_extends.x = char.hitbox.default.x
+	char.hitbox_extends.y = char.hitbox.default.y
+
+	playSound(0x87)
+	Fang.bounce = false
+}
+
+//# address-hook(0x00ffd4) end(0x010214)
+function void Character.OnCollisionWithDynamicObject()
+{
+	if (!competition_mode.active && (global.xtrachar != 0x013 || char.character != CHARACTER_KNUCKLES) || (competition_mode.active && char.character != 21))
+	{
+		base.Character.OnCollisionWithDynamicObject()
+		return
+	}
+	
+	// Example values for objA1.collision_attributes:
+	//  - 0x06, 0x0b, 0x17, 0x1a = Different types of enemies
+	//  - 0x0f		 = Boss enemy
+	//  - 0x18		 = Extended arm of DEZ Chainspike
+	//  - 0x23		 = AIZ Bloominator
+	//  - 0x46		 = Monitor
+	//  - 0x47		 = Dynamic ring
+	//  - 0x87		 = Extended arm of SOZ Skorp
+	//  - 0x8b, 0x9c = Flames, damaging parts of enemies
+	//  - 0x8f		 = Wrecking ball
+	//  - 0x98, 0x9b = Projectile
+	//  - 0xd8		 = Thrown mushroom, stars over starpost
+
+	D1.u8 = (objA1.collision_attributes & collision_attributes.flags)
+	if (D1.u8 == 0)
+	{
+		// Collision is an enemy, i.e. is harmful, but can be attacked
+		bool attacking = false
+		if (char.bonus_effect & char.bonus.INVINCIBLE)
+		{
+			attacking = true
+		}
+		else if (char.state == char.state.ROLLING || char.state == char.state.SPINDASH)
+		{
+			attacking = true
+		}
+	#if STANDALONE
+		else if (Game.getSetting(SETTING_DROPDASH) && char.character == CHARACTER_SONIC && char.state == char.state.SONIC_DROPDASH)
+		{
+			attacking = true
+		}
+	#endif
+
+		if (!attacking)
+		{
+			bool isThreat = false
+			if (char.character == CHARACTER_KNUCKLES)
+			{
+				isThreat = (char.double_jump_state != 1 && char.double_jump_state != 3)
+			}
+			else if (char.character == CHARACTER_SONIC || char.double_jump_state == 0 || (char.flags & char.flag.UNDERWATER))
+			{
+				isThreat = true
+			}
+			else
+			{
+				s16 dx = char.position.x.u16 - objA1.position.x.u16
+				s16 dy = char.position.y.u16 - objA1.position.y.u16
+				D0.u8 = lookupAngleByVector(dx, dy) - 0x20
+				isThreat = (D0.u8 >= 0x40)
+			}
+
+			if (isThreat)
+			{
+				Character.OnThreatCollision()
+				return
+			}
+		}
+
+		if (u8[A1 + 0x29] != 0)
+		{
+			char.velocity.x = -char.velocity.x
+			char.velocity.y = -char.velocity.y
+			char.groundspeed = -char.groundspeed
+			u8[A1 + 0x1c] = A0.u8
+			u8[A1 + 0x25] = u8[A1 + 0x28]
+			u8[A1 + 0x28] = 0
+			--u8[A1 + 0x29]
+			if (u8[A1 + 0x29] == 0)
+			{
+				u8[A1 + 0x2a] |= 0x80
+			}
+			if ((char.bonus_effect & char.bonus.ANY_SHIELD) == 0 && fangShields == 1)
+				char.double_jump_state = 0
+			if (char.character == CHARACTER_KNUCKLES)
+			{
+				if (char.double_jump_state == 1)
+				{
+					char.double_jump_state = 0
+					char.state = char.state.ROLLING
+				}
+			}
+		}
+		else
+		{
+			if (u8[A1 + 0x2a] & 0x04)
+			{
+				A2 = 0xffff0000 + u16[A1 + 0x3c]
+				u8[A2] &= ~(1 << u8[A1 + 0x3b])
+			}
+
+			u8[A1 + 0x2a] |= 0x80
+
+			// Grant bonus points
+			Enemy.addScore(A1, 0x010216)
+			
+			if ((char.bonus_effect & char.bonus.ANY_SHIELD) == 0 && fangShields == 1)
+				char.double_jump_state = 0
+
+			objA1.update_address = 0x01e5e0
+			u8[A1 + 0x05] = 0
+			if (char.velocity.y < 0)
+			{
+				char.velocity.y += 0x100
+			}
+			else if (char.position.y.u16 >= objA1.position.y.u16)
+			{
+				char.velocity.y -= 0x100
+			}
+			else
+			{
+				char.velocity.y = -char.velocity.y
+			}
+		}
+	}
+	else if (D1.u8 == collision.flag.ITEM)
+	{
+		D0.u8 = (objA1.collision_attributes & collision_attributes.size)
+		if (D0.u8 != collision.size.16x16)
+		{
+			// Collect ring, but only after 30 invulnerability frames
+			//  -> Remember that the "char.invuln.countdown" timer starts at 120
+			u8 timer = competition_mode.active ? char.invuln.countdown : u8[0xffffb000 + 0x34]
+			if (timer < 90)
+			{
+				u8[A1 + 0x05] = 0x04
+			}
+		}
+		else
+		{
+			// This part seems to be for monitors specifically
+			s16 vy = (global.inv_gravity) ? -char.velocity.y : char.velocity.y
+		#if STANDALONE
+			// Calculate if the player is moving up, specifically relative to the monitor
+			vy = char.velocity.y - objA1.velocity.y
+		#endif
+			bool movingUp = (objA1.render_flags & render_flag.FLIP_Y) ? (vy > 0) : (vy < 0)
+		#if STANDALONE
+			movingUp = (vy < 0)		// Velocity is normalised for inverted gravity anyway, so no need for fancy conditional checks
+
+			// If player and monitor are at different orientations, check if player is moving down instead of up
+			if ((objA1.render_flags & render_flag.FLIP_Y) != (char.render_flags & render_flag.FLIP_Y))
+			{
+				movingUp = !movingUp
+
+				if (char.flags & char.flag.IN_AIR)
+					objA1.flags2a &= ~object.flag.P1_PUSHING
+			}
+
+			movingUp = (movingUp && (abs(char.position.x.u16 - objA1.position.x.u16) < 0x12 || char.state == char.state.ROLLING))		// only bounce at a certain distance, otherwise push the player away when falling, #contributed by GFX32
+		#endif
+			if (movingUp)
+			{
+			#if STANDALONE
+				if ((objA1.flags2a & object.flag.P1_PUSHING) && (char.flags & char.flag.IN_AIR))
+				{
+					// In S3AIR, do not allow S&K's monitor opening from the side
+					//  -> This is done to be more consistent with other Sonic games, incl. Sonic 1, 2, CD, Mania and even Sonic 3 alone
+					//  -> The first check above tells us if the character is on a side of the monitor
+					//  -> The second one makes sure that you can always ground-based roll into a monitor (see e.g. first invincibility in MHZ 1, when spindashing into it from the right)
+					return
+				}
+				else if (Game.getSetting(SETTING_MONITOR_BEHAVIOR) == 0)
+				{
+					// All you really need for Sonic & Knuckles monitor Behavior. everything else relevant is handled elsewhere
+					char.velocity.y = -char.velocity.y
+				}
+				else
+				{
+					// Improved code to prevent crushing and allow bouncing on ground, #contributed by GFX32
+
+					// If the player is below the monitor, it should bounce.
+					bool isBelow = (char.position.y.u16 > (objA1.position.y.u16 + objA1.hitbox_extends.y))
+
+					if (objA1.render_flags & render_flag.FLIP_Y)
+						isBelow = (char.position.y.u16 < (objA1.position.y.u16 - objA1.hitbox_extends.y))
+
+					// Not when spindashing!
+					if (char.state == char.state.SPINDASH)
+						isBelow = false
+
+					if (isBelow)
+					{
+						// Hit monitor from below, make it fall
+						u8[A1 + 0x3c] = 1
+
+						char.velocity.y = -char.velocity.y
+						objA1.velocity.y = -0x180
+
+						// Calculate how far the monitor is inside the player, then separate them; this attempts to prevent crushing collision on subsequent frames.
+						s16 dy = (objA1.position.y.u16 + objA1.hitbox_extends.y) - (char.position.y.u16 - char.hitbox_extends.y)
+
+						if (objA1.render_flags & render_flag.FLIP_Y)
+							dy = (objA1.position.y.u16 - objA1.hitbox_extends.y) - (char.position.y.u16 + char.hitbox_extends.y)
+
+						// Only push the player when in midair
+						if (char.flags & char.flag.IN_AIR)
+						{
+							dy /= 2
+							char.position.y.u16 += dy
+						}
+						objA1.position.y.u16 -= dy
+
+						if (u8[A1 + 0x3c] == 0)
+							u8[A1 + 0x3c] = 4
+
+						return
+					}
+				}
+			#else
+				if (objA1.flags2a & char.flag.IN_AIR)
+				{
+					// This block is a bit broken due to the above check, and falling monitors can crush the player, and is this really what we want?
+
+					if ((objA1.render_flags & render_flag.FLIP_Y) == 0)
+					{
+						if (char.position.y.u16 - 0x10 < objA1.position.y.u16)
+							return
+					}
+					else
+					{
+						if (char.position.y.u16 + 0x10 >= objA1.position.y.u16)
+							return
+					}
+
+					char.velocity.y = -char.velocity.y
+					objA1.velocity.y = -0x180
+					if (u8[A1 + 0x3c] == 0)
+						u8[A1 + 0x3c] = 4
+
+					return
+				}
+			#endif
+			}
+
+			if (A0 != 0xffffb000 && competition_mode.active == 0)
+			{
+				// Sorry player 2, you can't open monitors in normal game
+				return
+			}
+
+			bool canOpenMonitor = false
+			if (char.state == char.state.ROLLING)
+			{
+				canOpenMonitor = true
+			}
+		#if STANDALONE
+			else if (Game.getSetting(SETTING_DROPDASH) && char.character == CHARACTER_SONIC && char.state == char.state.SONIC_DROPDASH)
+			{
+				canOpenMonitor = true
+			}
+			else if (char.state == char.state.SPINDASH)
+			{
+				canOpenMonitor = true
+			}
+			else if (objA1.velocity.y < 0)
+			{
+				// Make monitors break over the player's head at different orientations. #contributed by Dynamic Lemons
+				if ((global.inv_gravity != (objA1.render_flags & render_flag.FLIP_Y) != 0))
+					canOpenMonitor = true
+			}
+		#endif
+			else if (char.character == CHARACTER_KNUCKLES)
+			{
+				// Check if Knuckles glides into the monitor
+				canOpenMonitor = (char.double_jump_state == 1 || char.double_jump_state == 3)
+			}
+
+			if (canOpenMonitor)
+			{
+			#if STANDALONE
+				if (!movingUp)
+			#endif
+				{
+					// Bounce off
+					char.velocity.y = -char.velocity.y
+				}
+				
+				if ((char.bonus_effect & char.bonus.ANY_SHIELD) == 0 && fangShields == 1)
+					char.double_jump_state = 0
+				
+				objA1.base_state = 0x04		// Set monitor state to broken
+				objA1.monitor.character_address = A0.u16		// RAM address of character
+			}
+		}
+	}
+	else if (D1.u8 == collision.flag.THREAT)
+	{
+		// Harmful object
+		Character.OnThreatCollision()
+	}
+	else  // D1.u8 == collision.flag.SPECIAL
+	{
+		// Other interactable object
+		fn0103ba()
+	}
+}
+
+//# address-hook(0x016444) end(0x016498)
+function void Character.BaseUpdate.Knuckles()
+{
+	base.Character.BaseUpdate.Knuckles()
+	if (global.xtrachar == 0x013)
+	{
+		++Fang.coolDown
+		u32 A0backup = A0
+		A0 = A0cork
+		CheckCollisonForCorkGlobal()
+		A0 = A0backup
+
+		u32 A0backup2 = A0
+		A0 = A0cork2
+		CheckCollisonForCorkGlobal()
+		A0 = A0backup2
+		//this is not a good way of doing it, this function can only check for one cork, and is more reliable, but each cork has its own collision detection, though it doesnt work as often. so this is what my brain could come up with huh
+	}
+}
+
+function void spawnCork()
+{
+	u32 A1backup = A1
+	if (allocDynamicObjectStd())
+	{
+		if (char.state != char.state.LOOKING_UP && !(char.animation.sprite >= 0xd2 && char.animation.sprite <= 0xde) && (abs(s8(char.rotation)) <= 0x10) && char.state != char.state.BALANCING1 && char.state != char.state.BALANCING2)
+		{
+			objA1.update_address = 0x212250
+			objA1.render_flags = (render_flag.WORLD | render_flag.VISIBLE)
+			objA1.sprite_priority = 0x200
+			objA1.box_size.x = 0x18
+			objA1.box_size.y = 0x18
+			objA1.sprite_attributes = objA0.sprite_attributes
+			objA1.position.y = objA0.position.y
+			objA1.position.x = objA0.position.x
+			objA1.velocity.x = (objA0.render_flags & render_flag.FLIP_X) ? -0x900 : 0x900
+			if (char.state == char.state.ROLLING)
+				objA1.position.x.u16 += (objA0.render_flags & render_flag.FLIP_X) ? -0x10 : 0x10
+			else if (char.state == char.state.STRAIGHTJUMP)
+			{
+				objA1.position.x.u16 += (objA0.render_flags & render_flag.FLIP_X) ? -0x18 : 0x18
+				objA1.position.y.u16 += (global.inv_gravity) ? 0x8 : -0x8
+			}
+			else if (char.state == char.state.STANDING)
+			{
+				objA1.position.x.u16 += (objA0.render_flags & render_flag.FLIP_X) ? -0x1c : 0x1c
+				objA1.position.y.u16 += (global.inv_gravity) ? 0x3 : -0x3
+			}
+			else if (char.animation.sprite >= 0x21 && char.animation.sprite <= 0x24)
+			{
+				objA1.position.x.u16 += (objA0.render_flags & render_flag.FLIP_X) ? -0x1a : 0x1a
+				objA1.position.y.u16 += (global.inv_gravity) ? -0x1 : 0x1
+			}
+			else if (char.animation.sprite >= 0x01 && char.animation.sprite <= 0x08)
+			{
+				objA1.position.x.u16 += (objA0.render_flags & render_flag.FLIP_X) ? -0x1c : 0x1c
+				objA1.position.y.u16 += (global.inv_gravity) ? 0x2 : -0x2
+			}
+			else
+			{
+				UnloadObjectA1()
+				return
+			}
+			objA1.hitbox_extends.x = 9
+			objA1.hitbox_extends.y = 16
+			if (objA1.velocity.x > 0)
+			{
+				objA1.render_flags |= render_flag.FLIP_X
+			}
+			
+			playSound(0x4d)
+			++Fang.corkCount
+			Fang.coolDown = 0
+			objA1.value2f = Fang.corkCount
+			objA1.value26 = 0
+			objA1.value39 = 0
+		}
+	}
+	A1 = A1backup
+}
+
+//# address-hook(0x212260)
+function void Cork.ExplosionUpdate()//might change later, but it looks okay for now
+{
+	if (objA0.value26 > 79)
+	{
+		UnloadObject()
+		return
+	}
+	if (objA0.value39 == 0)
+	{
+		A1 = 0xffffb000
+		objA0.position.y.u16 = objA1.position.y.u16
+		objA0.position.x.u16 = objA1.position.x.u16
+		if (u8[A1 + 0x20] == 0x02)
+			objA0.position.x.u16 += (objA1.render_flags & render_flag.FLIP_X) ? -0x10 : 0x10
+		else if (u8[A1 + 0x20] == 0x10)
+		{
+			objA0.position.x.u16 += (objA1.render_flags & render_flag.FLIP_X) ? -0x18 : 0x18
+			objA0.position.y.u16 += (global.inv_gravity) ? 0x8 : -0x8
+		}
+		else if (u8[A1 + 0x20] == 0x05)
+		{
+			objA0.position.x.u16 += (objA1.render_flags & render_flag.FLIP_X) ? -0x1c : 0x1c
+			objA0.position.y.u16 += (global.inv_gravity) ? 0x3 : -0x3
+		}
+		else if (u8[A1 + 0x22] >= 0x21 && u8[A1 + 0x22] <= 0x24)
+		{
+			objA0.position.x.u16 += (objA1.render_flags & render_flag.FLIP_X) ? -0x1a : 0x1a
+			objA0.position.y.u16 += (global.inv_gravity) ? -0x1 : 0x1
+		}
+		else if (u8[A1 + 0x22] >= 0x01 && u8[A1 + 0x22] <= 0x08)
+		{
+			objA0.position.x.u16 += (objA1.render_flags & render_flag.FLIP_X) ? -0x1c : 0x1c
+			objA0.position.y.u16 += (global.inv_gravity) ? 0x2 : -0x2
+		}
+	}
+	objA0.value2f = objA0.value26 / 20
+	objA0.value26 += 0x4
+	DrawObject()
+}
+//# address-hook(0x212250)
+function void Cork.BaseUpdate()
+{
+	if !(objA0.render_flags & render_flag.VISIBLE) || objA0.value39 == 1
+	{
+		D5c = 0
+		D2c = 0
+		D3c = 0
+		D4c = 0
+		A0cork = 0
+		D5c2 = 0
+		D2c2 = 0
+		D3c2 = 0
+		D4c2 = 0
+		A0cork2 = 0
+		--Fang.corkCount
+		UnloadObject()
+		return
+	}
+	
+	if (objA0.value26 == 0)
+	{
+		objA0.value26 = 1
+		u32 A1backup = A1
+		if (allocDynamicObjectStd())
+		{
+			objA1.update_address = 0x212260
+			objA1.render_flags = (render_flag.WORLD | render_flag.VISIBLE)
+			objA1.sprite_priority = 0x200
+			objA1.sprite_attributes = objA0.sprite_attributes
+			objA1.position.y = objA0.position.y
+			objA1.position.x = objA0.position.x
+			objA1.value39 = 0
+		}
+		A1 = A1backup
+	}
+	
+	UpdateMovementStraightSimple()
+	DrawObject()
+	
+	if (objA0.value2f == Fang.corkCount && Fang.corkCount > 1)
+	{
+		D5c2 = objA0.hitbox_extends.y - 3
+		D2c2 = objA0.position.x.u16 - 8
+		D3c2 = objA0.position.y.u16 - D5c2
+		D4c2 = 16
+		D5c2 *= 2
+		A0cork2 = A0
+	}
+	else
+	{
+		D5c = objA0.hitbox_extends.y - 3
+		D2c = objA0.position.x.u16 - 8
+		D3c = objA0.position.y.u16 - D5c
+		D4c = 16
+		D5c *= 2
+		A0cork = A0
+	}
+	
+	D5 = objA0.hitbox_extends.y - 3
+	D2 = objA0.position.x.u16 - 8
+	D3 = objA0.position.y.u16 - D5.u16
+	D4 = 16
+	D5 *= 2
+	CheckCollisonForCork()
+	CheckCollisonForCork()
+}
+
+//not good collision detection, but it's is the same as what the characters use??? what's the hold up!?
+global u16 D5c
+global u16 D4c
+global u16 D3c
+global u16 D2c
+global u32 A0cork
+
+global u16 D5c2
+global u16 D4c2
+global u16 D3c2
+global u16 D2c2
+global u32 A0cork2
+
+function void CheckCollisonForCorkGlobal()
+{
+	u16 numObjects = u16[0xffffe380]
+	A4 = 0xffffe380 + 2
+	while (numObjects != 0)
+	{
+		// Get address of dynamic object
+		A1 = 0xffff0000 + u16[A4]
+		A4 += 2
+
+		// Offset into a list of hitbox sizes
+		u16 offset = objA1.collision_attributes
+		if (offset != 0)
+		{
+			A2 = 0x00ff62 + (offset & collision_attributes.size) * 2
+			s16 hitbox.x = u8[A2]
+			s16 hitbox.y = u8[A2+1]
+
+			u16 px = objA1.position.x.u16 - hitbox.x
+			u16 py = objA1.position.y.u16 - hitbox.y
+			u16 sx = hitbox.x * 2
+			u16 sy = hitbox.y * 2
+			
+			if (A0 == A0cork)
+			{
+				if (checkBoxOverlap(D2c, D3c, D4c, D5c, px, py, sx, sy))
+				{
+					// Collision found
+					OnCollision()
+					return
+				}
+			}
+			else if (A0 == A0cork2)
+			{
+				if (checkBoxOverlap(D2c2, D3c2, D4c2, D5c2, px, py, sx, sy))
+				{
+					// Collision found
+					OnCollision()
+					return
+				}
+			}
+		}
+
+		numObjects -= 2
+	}
+}
+
+function void CheckCollisonForCork()
+{
+	u16 numObjects = u16[0xffffe380]
+	A4 = 0xffffe380 + 2
+	while (numObjects != 0)
+	{
+		// Get address of dynamic object
+		A1 = 0xffff0000 + u16[A4]
+		A4 += 2
+
+		// Offset into a list of hitbox sizes
+		u16 offset = objA1.collision_attributes
+		if (offset != 0)
+		{
+			A2 = 0x00ff62 + (offset & collision_attributes.size) * 2
+			s16 hitbox.x = u8[A2]
+			s16 hitbox.y = u8[A2+1]
+
+			u16 px = objA1.position.x.u16 - hitbox.x
+			u16 py = objA1.position.y.u16 - hitbox.y
+			u16 sx = hitbox.x * 2
+			u16 sy = hitbox.y * 2
+
+			if (checkBoxOverlap(D2.u16, D3.u16, D4.u16, D5.u16, px, py, sx, sy))
+			{
+				// Collision found
+				OnCollision()
+				return
+			}
+		}
+
+		numObjects -= 2
+	}
+}
+
+//what to do if collison with object is found
+function void OnCollision()
+{
+	D1.u8 = (objA1.collision_attributes & collision_attributes.flags)
+	if (D1.u8 == 0)
+	{
+		if (u8[A1 + 0x29] != 0)
+		{
+			u32 A0backup2 = A0
+			A0 = 0xffffb000
+			
+			u8[A1 + 0x1c] = A0.u8
+			u8[A1 + 0x25] = u8[A1 + 0x28]
+			u8[A1 + 0x28] = 0
+			--u8[A1 + 0x29]
+			if (u8[A1 + 0x29] == 0)
+			{
+				u8[A1 + 0x2a] |= 0x80
+			}
+			
+			A0 = A0backup2
+			
+			createDustExplos()
+			if (corkPierce == 0)
+			{
+				CorkDestroyed()
+			}
+		}
+		else
+		{
+			if (u8[A1 + 0x2a] & 0x04)
+			{
+				A2 = 0xffff0000 + u16[A1 + 0x3c]
+				u8[A2] &= ~(1 << u8[A1 + 0x3b])
+			}
+
+			u8[A1 + 0x2a] |= 0x80
+
+			// Grant bonus points
+			Enemy.addScore(A1, 0x010216)
+
+			objA1.update_address = 0x01e5e0
+			u8[A1 + 0x05] = 0
+			
+			if (corkPierce == 0)
+			{
+				CorkDestroyed()
+			}
+		}
+	}
+	else if (D1.u8 == collision.flag.ITEM)
+	{
+		D0.u8 = (objA1.collision_attributes & collision_attributes.size)
+		if (D0.u8 == collision.size.16x16)
+		{
+			u32 A0backup2 = A0
+			A0 = 0xffffb000
+			
+			objA1.base_state = 0x04		// Set monitor state to broken
+			objA1.monitor.character_address = A0.u16		// RAM address of character
+
+			A0 = A0backup2
+			
+			if (corkPierce == 0)
+			{
+				CorkDestroyed()
+			}
+		}
+	}
+	else if (D1.u8 == collision.flag.THREAT && corkThreat == 1)
+	{
+		createDustExplos()
+		CorkDestroyed()
+	}
+	else
+	{
+		u8 var = (objA1.collision_attributes & collision_attributes.size)
+		if (var == collision.size.16x16 || var == collision.size.6x6 || var == collision.size.16x8 || var == collision.size.4x4_2 || (var >= collision.size.128x32 && var <= collision.size.4x4_2) || var == collision.size.24x24_2)
+		{
+			if (objA1.update_address == 0x08dafc || (global.zone == 0x01 && (objA1.update_address == 0x0878ce || objA1.update_address == 0x087f5c || objA1.update_address == 0x08792e)) || (global.zone == 0x03 && (objA1.update_address == 0x031754)) || (global.zone == 0x06 && (objA1.update_address == 0x025cf0)))
+			{
+				++u8[A1 + 0x29]
+				if (objA1.update_address == 0x087f5c || objA1.update_address == 0x031754 || objA1.update_address == 0x08dafc || objA1.update_address == 0x08792e || objA1.update_address == 0x025cf0)
+					++u8[A1 + 0x3b]
+				if (corkPierce == 0)
+				{
+					CorkDestroyed()
+				}
+			}
+		}
+	}
+}
+
+function void CorkDestroyed()//used to be a more important and big function 
+{
+	objA0.value39 = 1
+}
+
+function void createDustExplos()
+{
+	u32 A1backup = A1
+	if (allocDynamicObjectStd())
+	{
+		objA1.update_address = 0x212260
+		objA1.render_flags = (render_flag.WORLD | render_flag.VISIBLE)
+		objA1.sprite_priority = 0x200
+		objA1.sprite_attributes = objA0.sprite_attributes
+		objA1.position.y = objA0.position.y
+		objA1.position.x = objA0.position.x
+		objA1.value39 = 1
+	}
+	A1 = A1backup
+}
+
+//to get this to work without any funni shit happening should not have taken me so loooooonnng to do
+//# address-hook(0x016890) end(0x016c78)
+//# translated(0x016f6c) end(0x016fa6)
+function void UpdateKnucklesGlideCollision()
+{
+	if (!competition_mode.active && (global.xtrachar != 0x013 || char.character != CHARACTER_KNUCKLES) || (competition_mode.active && char.character != 21))
+	{
+		base.UpdateKnucklesGlideCollision()
+		return
+	}
+	if (char.double_jump_state == 0)
+		return
+
+	D0.u8 = char.double_jump_state
+	if (char.double_jump_state == 1 || char.double_jump_state > 5)	// Last check is probably not needed, just added for full compatibility
+	{
+		// Gliding state
+		fn01793e()
+		//if (knuckles.glideclimbstate & 0x02)	// Gliding?
+		{
+			if (knuckles.glideclimbstate & 0x20)	// Climbing?
+			{
+				if ((knuckles.preventclimbing & 0x80) == 0)
+				{
+					bool hit_wall = true
+					D5.u8 = char.layer_flags2
+					D0.u8 = knuckles.glide_direction + 0x40
+					if (D0.s8 < 0)
+					{
+						char.flags |= char.flag.FACING_LEFT & (char.character == CHARACTER_KNUCKLES &&(control.player1.state & CONTROL_LEFT & CONTROL_RIGHT) == 1)
+						fn00fcca()
+
+						D1.u16 |= D0.u16
+						if (D1.u16 != 0)
+						{
+							D3.u16 = char.position.x.u16 - s8(char.hitbox_extends.y) - 1
+
+							if (global.inv_gravity == 0)
+							{
+								D2.u16 = char.position.y.u16 - 11
+								fn00f8a6()
+								if (D1.s16 < 0 || D1.u16 >= 12)
+								{
+									hit_wall = false
+								}
+								else
+								{
+									char.position.y.u16 += D1.u16
+								}
+							}
+							else
+							{
+								D2.u16 = (char.position.y.u16 + 11) ^ 0x0f
+								fn00fc5c()
+								if (D1.s16 < 0 || D1.u16 >= 12)
+								{
+									hit_wall = false
+								}
+								else
+								{
+									char.position.y.u16 -= D1.u16
+								}
+							}
+						}
+						else
+						{
+							++char.position.x.u16
+						}
+					}
+					else
+					{
+						char.flags &= ~char.flag.FACING_LEFT
+						fn00f9ba()
+
+						D1.u16 |= D0.u16
+						if (D1.u16 != 0)
+						{
+							D3.u16 = char.position.x.u16 + s8(char.hitbox_extends.y) + 1
+
+							if (global.inv_gravity == 0)
+							{
+								D2.u16 = char.position.y.u16 - 11
+								fn00f8a6()
+								if (D1.s16 < 0 || D1.u16 >= 12)
+								{
+									hit_wall = false
+								}
+								else
+								{
+									char.position.y.u16 += D1.u16
+								}
+							}
+							else
+							{
+								D2.u16 = (char.position.y.u16 + 11) ^ 0x0f
+								fn00fc5c()
+								if (D1.s16 < 0 || D1.u16 >= 12)
+								{
+									hit_wall = false
+								}
+								else
+								{
+									char.position.y.u16 -= D1.u16
+								}
+							}
+						}
+					}
+
+					if (hit_wall)
+					{
+						playSound(SFX_GRAB)
+						char.groundspeed = 0
+						char.velocity.x = 0
+						char.velocity.y = 0
+						char.double_jump_state = 4
+						char.animation.sprite = 0xb7
+						char.animation.timer = 0x7f
+						char.animation.frame = 0
+						knuckles.glide_direction = 3
+						u16[A0 + 0x12] = char.position.x.u16
+						return
+					}
+				}
+
+				char.double_jump_state = 2
+				char.state = char.state.KNUX_FALLING
+				char.hitbox_extends.x = char.hitbox.default.x
+				char.hitbox_extends.y = char.hitbox.default.y
+				knuckles.glideclimbstate |= 0x02
+				return
+			}
+		}
+		
+		char.double_jump_state = 0
+		char.state = char.state.ROLLING
+		char.flags |= (char.flag.ROLLING | char.flag.ROLLING)
+		char.hitbox_extends.x = char.hitbox.default.x
+		char.hitbox_extends.y = char.hitbox.default.y
+		knuckles.glideclimbstate |= 0x02
+		return
+	}
+	else if (char.double_jump_state == 2)
+	{
+		// Falling state
+		Character.UpdateControlInAir()
+
+		// Gravity
+		char.velocity.y += (char.flags & char.flag.UNDERWATER) ? 0x10 : 0x38
+
+		fn01793e()
+		if ((knuckles.glideclimbstate & 0x02) == 0)
+		{
+			char.groundspeed = 0
+			char.velocity.x = 0
+			char.velocity.y = 0
+			s16 dy = s8(char.hitbox_extends.y - char.hitbox.default.y)
+			char.position.y.u16 += global.inv_gravity ? -dy : dy
+			playSound(0x4c)
+
+			D0.u8 = (char.rotation + 0x20) & 0xc0
+			if (D0.u8 != 0)
+			{
+				Character.LandingOnGroundNoSpindash()
+			}
+			else
+			{
+				Character.LandingOnGroundNoSpindash()
+				char.hlock_countdown = 15
+				char.state = char.state.KNUX_STANDUP2
+			}
+		}
+	}
+	else if (char.double_jump_state == 4)
+	{
+		// Climbing state
+		if (knuckles.preventclimbing & 0x80 || char.position.x.u16 != u16[A0 + 0x12] || (char.flags & char.flag.ON_OBJECT))
+		{
+			fn016ed2()
+			return
+		}
+
+		char.groundspeed = 0
+		char.velocity.x = 0
+		char.velocity.y = 0
+		u32[0xfffff796] = (char.layer_flags2 == 0x0d) ? u32[0xfffff7b4] : u32[0xfffff7b8]
+		D5.u8 = char.layer_flags2
+		D1 = 0
+
+		if ((control.player1.state & CONTROL_UP) == 0)
+		{
+			fn016d10()
+			return
+		}
+
+		if (global.inv_gravity)
+		{
+			fn016da8()
+			return
+		}
+
+		D2.u16 = char.position.y.u16 - 11
+		fn016f4e()
+		if (D1.s16 >= 4)
+		{
+			fn016eba()
+			return
+		}
+
+		if (D1.u16 != 0)
+		{
+			fn016e60()
+		}
+
+		D5.u8 = char.layer_flags2
+		D2.u16 = char.position.y.u16 - 8
+		D3.u16 = char.position.x.u16
+		fn00fbee()
+		if (D1.s16 < 0)
+		{
+			char.position.y.u16 -= D1.u16
+			D1 = 1
+		}
+		else
+		{
+			--char.position.y.u16
+			if (super.active)
+				--char.position.y.u16
+
+			D1 = 1
+			D0.u16 = level.vertical_wrap
+			if (D0.u16 != 0xff00)
+			{
+				D0.u16 += 0x10
+				if (D0.s16 > s16(objA0.position.y.u16))
+				{
+					char.position.y.u16 = D0.u16
+				}
+			}
+		}
+		fn016e10()
+	}
+	else if (char.double_jump_state == 5)
+	{
+		// Climbing up a ledge
+		if (char.animation.timer == 0)
+		{
+			fn016efe()
+			if (knuckles.glide_direction == 0x10)
+			{
+				char.groundspeed = 0
+				char.velocity.x = 0
+				char.velocity.y = 0
+				if (char.flags & char.flag.FACING_LEFT)
+					--char.position.x.u16
+
+				Character.LandingOnGroundNoSpindash()
+				char.state = char.state.STANDING
+			}
+		}
+	}
+}
+
+//# address-hook(0x011eec) end(0x011fd4)
+//# translated(0x012012) end(0x01209c)
+//# translated(0x01209e) end(0x012100)
+//# translated(0x012102) end(0x012170)
+//# address-hook(0x0153c2) end(0x01560a)
+function void Character.CheckCollision()
+{
+	if (!competition_mode.active && (global.xtrachar != 0x013 || char.character != CHARACTER_KNUCKLES) || (competition_mode.active && char.character != 21))
+	{
+		base.Character.CheckCollision()
+		return
+	}
+#if STANDALONE
+	if (A0 == 0xffffb000)
+	{
+		// Needed only for bubble shield bounce
+		mainchar.groundhit.velocity.x = char.velocity.x
+		mainchar.groundhit.velocity.y = char.velocity.y
+	}
+#endif
+
+	bool someFlag = (char.character == CHARACTER_TAILS) ? u8[0xfffff7c9] : u8[0xfffff7c8]
+
+	u32[0xfffff796] = (char.layer_flags1 == 0x0c) ? u32[0xfffff7b4] : u32[0xfffff7b8]
+
+	D5.u8 = char.layer_flags2
+	D0.u16 = lookupAngleByVector(char.velocity.x, char.velocity.y)
+	D0.u8 = (D0.u8 - 0x20) & 0xc0
+	if (D0.u8 == 0)
+	{
+		Character.CheckLeftWallCollision()
+		if (D1.s16 < 0)
+		{
+			Fang.Climb = ((char.render_flags & render_flag.FLIP_X) ? true : false)
+			char.position.x.u16 -= D1.u16
+			char.velocity.x = 0
+		}
+
+		Character.CheckRightWallCollision()
+		if (D1.s16 < 0)
+		{
+			Fang.Climb = ((char.render_flags & render_flag.FLIP_X) ? false : true)
+			char.position.x.u16 += D1.u16
+			char.velocity.x = 0
+		}
+
+		Character.CheckFloorCollision()
+		if (D1.s16 < 0)
+		{
+			D2.u8 = (char.velocity.y >> 8) + 8
+			D2.s8 = -D2.s8
+			if (D0.s8 < D2.s8 && D1.s8 < D2.s8)
+				return
+
+			char.rotation = D3.u8
+			char.position.y.u16 += global.inv_gravity ? -D1.s16 : D1.s16
+
+			if (((D3.u8 + 0x20) & 0x40) == 0)
+			{
+				if (((D3.u8 + 0x10) & 0x20) == 0)
+				{
+					char.velocity.y = 0
+					char.groundspeed = char.velocity.x
+					Character.LandingOnGround()
+					return
+				}
+				else
+				{
+					char.velocity.y >>= 1
+				}
+			}
+			else
+			{
+				char.velocity.x = 0
+				char.velocity.y = min(char.velocity.y, 0x0fc0)
+			}
+
+			Character.LandingOnGround()
+			char.groundspeed = char.velocity.y
+			if (D3.s8 < 0)
+			{
+				char.groundspeed = -char.groundspeed
+			}
+			Fang.Climb = false
+		}
+	}
+	else if (D0.u8 == 0x40)
+	{
+		Character.CheckLeftWallCollision()
+		if (D1.s16 < 0)
+		{
+			Fang.Climb = ((char.render_flags & render_flag.FLIP_X) ? true : false)
+			char.position.x.u16 -= D1.u16
+			char.velocity.x = 0
+			char.groundspeed = char.velocity.y
+		}
+
+		Character.CheckCeilingCollision()
+		if (D1.s16 < 0)
+		{
+			D1.s16 = -D1.s16
+			if (D1.s16 < 0x14)
+			{
+				if (global.inv_gravity)
+					D1.s16 = -D1.s16
+
+				char.position.y.u16 += D1.u16
+				char.velocity.y = max(char.velocity.y, 0)
+			}
+			else
+			{
+				Character.CheckRightWallCollision()
+				if (D1.s16 < 0)
+				{
+					char.position.x.u16 += D1.u16
+					char.velocity.x = 0
+					Fang.Climb = ((char.render_flags & render_flag.FLIP_X) ? false : true)
+				}
+			}
+		}
+		else
+		{
+			if (someFlag || char.velocity.y >= 0)
+			{
+				Character.CheckFloorCollision()
+				if (D1.s16 < 0)
+				{
+					Fang.Climb = false
+					char.position.y.u16 += global.inv_gravity ? -D1.s16 : D1.s16
+					char.rotation = D3.u8
+					char.velocity.y = 0
+					char.groundspeed = char.velocity.x
+					Character.LandingOnGround()
+				}
+			}
+		}
+	}
+	else if (D0.u8 == 0x80)
+	{
+		Character.CheckLeftWallCollision()
+		if (D1.s16 < 0)
+		{
+			char.position.x.u16 -= D1.u16
+			char.velocity.x = 0
+			Fang.Climb = ((char.render_flags & render_flag.FLIP_X) ? true : false)
+		}
+
+		Character.CheckRightWallCollision()
+		if (D1.s16 < 0)
+		{
+			char.position.x.u16 += D1.u16
+			char.velocity.x = 0
+			Fang.Climb = ((char.render_flags & render_flag.FLIP_X) ? false : true)
+		}
+
+		Character.CheckCeilingCollision()
+		if (D1.s16 < 0)
+		{
+			if (global.inv_gravity)
+				D1.s16 = -D1.s16
+
+			char.position.y.u16 -= D1.u16
+			if (((D3.u8 + 0x20) & 0x40) == 0)
+			{
+				char.velocity.y = 0
+			}
+			else
+			{
+				char.rotation = D3.u8
+				Character.LandingOnGround()
+
+				char.groundspeed = char.velocity.y
+				if (D3.s8 < 0)
+					char.groundspeed = -char.groundspeed
+			}
+		}
+	}
+	else 	// (D0.u8 == 0xc0)
+	{
+		Character.CheckRightWallCollision()
+		if (D1.s16 < 0)
+		{
+			char.position.x.u16 += D1.s16
+			char.velocity.x = 0
+			char.groundspeed = char.velocity.y
+			Fang.Climb = ((char.render_flags & render_flag.FLIP_X) ? false : true)
+		}
+
+		Character.CheckCeilingCollision()
+		if (D1.s16 < 0)
+		{
+			char.position.y.u16 -= global.inv_gravity ? -D1.s16 : D1.s16
+			char.velocity.y = max(char.velocity.y, 0)
+		}
+		else
+		{
+			if (someFlag || char.velocity.y >= 0)
+			{
+				Character.CheckFloorCollision()
+				if (D1.s16 < 0)
+				{
+					Fang.Climb = false
+					char.position.y.u16 += global.inv_gravity ? -D1.s16 : D1.s16
+					char.rotation = D3.u8
+					char.velocity.y = 0
+					char.groundspeed = char.velocity.x
+					Character.LandingOnGround()
+				}
+			}
+		}
+	}
+}

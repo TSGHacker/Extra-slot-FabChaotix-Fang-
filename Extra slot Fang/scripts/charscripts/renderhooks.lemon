@@ -1,0 +1,261 @@
+function void ExtraChar.DataSelect.drawCharacterSprite(s16 px, s16 py, u16 renderQueue)
+{
+#if EXTRA_SAVE_SLOTS_ACTIVE
+	if (objA0.animation.timer == 0x13 || u8[A3 + 0x24] == 0x13)
+#else
+	if (objA0.animation.timer == 0x13)
+#endif
+	{
+		string key = "dataSel_slot19"
+		if (Renderer.hasCustomSprite(key))
+			Renderer.drawCustomSprite(key, px, py, 0x00, SPRITE_FLAG_PRIO, renderQueue)
+		return
+	}
+	
+	// Call the base function
+	base.ExtraChar.DataSelect.drawCharacterSprite(px, py, renderQueue)
+}
+
+function void ExtraChar.Competition.drawCharacterSprite(s16 px, s16 py, u16 renderQueue)
+{
+	if (objA0.animation.timer == 0x13)
+	{
+		string key = "dataSel_slot19"
+		if (Renderer.hasCustomSprite(key))
+			Renderer.drawCustomSprite(key, px, py, 0x00, SPRITE_FLAG_PRIO, renderQueue)
+		return
+	}
+	
+	// Call the base function
+	base.ExtraChar.Competition.drawCharacterSprite(px, py, renderQueue)
+}
+
+function void ExtraChar.DataSelect.drawCharacterIconsSprite(s16 px, s16 py, u16 renderQueue)
+{
+	if (objA0.animation.timer == 0x13)
+	{
+		string key
+		key = "dataSel_lifeContinue_slot19"
+		if (Renderer.hasCustomSprite(key))
+		{
+			if (u8[A0 + 0x05] != 0x00 && u8[A0 + 0x08] != 0x01)
+			{
+				//s16 px2 = px + 0x08
+				Renderer.drawCustomSprite(key, px, py, 0x00, SPRITE_FLAG_PRIO, 0xffff)
+			}
+		}
+		return
+	}
+	
+	// Call the base function
+	base.ExtraChar.DataSelect.drawCharacterIconsSprite(px, py, renderQueue)
+}
+
+function void ExtraChar.Competition.drawCharacterContinueSprite(s16 px, s16 py, u16 renderQueue)
+{
+	if (objA0.animation.timer == 0x13)
+	{
+		string key = "continue_icon_slot19"
+		Renderer.drawCustomSprite(key, px, py, 0x00, 0x00, renderQueue)
+		return
+	}
+	
+	// Call the base function
+	base.ExtraChar.Competition.drawCharacterContinueSprite(px, py, renderQueue)
+}
+
+function void ExtraChar.Challenges.drawCharacterContinueSprite(u8 xtrachar, s16 px, s16 py, u8 flags, u16 renderQueue)
+{
+	if (xtrachar == 0x13)
+	{
+		string key = "continue_icon_slot19"
+		Renderer.drawCustomSprite(key, px, py, 0x00, flags, renderQueue)
+		return
+	}
+	
+	// Call the base function
+	base.ExtraChar.Challenges.drawCharacterContinueSprite(xtrachar, px, py, flags, renderQueue)
+}
+
+function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
+{
+	u8 gameMode = global.game_mode & 0x7f
+	bool prioFlag = (objA0.sprite_attributes & 0x8000) != 0
+	u8 flags = ((objA0.render_flags & 0x01) ? SPRITE_FLAG_FLIP_X : 0) | ((objA0.render_flags & 0x02) ? SPRITE_FLAG_FLIP_Y : 0) | ((objA0.sprite_attributes & 0x8000) ? SPRITE_FLAG_PRIO : 0)
+	
+	bool israypartner = (Mods.isModActive("Extra Slot Ray") && (System.getGlobalVariableValueByName("Ray_Partner") == 1 || System.getGlobalVariableValueByName("Ray_Partner") == 4))
+	
+	// save protraits
+	if (D1.u8 >= 8 && objA0.value3b != 0)
+	{
+		if (px >= 188 && px <= 208 && u16[0xffffb04a + 0x010] >= 0x130 && u16[0xffffb04a + 0x010] <= 0x0150)
+		{
+			u64 portrait = 0
+			if (objA0.animation.sprite == 5 && objA0.animation.timer == 3)
+			{
+				if (u8[A0 + 0x23] == 0x18)
+					portrait = "dataSel_savePortrait_slot19"
+				else if (u8[A0 + 0x23] == 0x19)
+					portrait = "dataSel_savePortrait_superslot19"
+			}
+			if (portrait != 0 && Renderer.hasCustomSprite(portrait))
+			{
+			#if GAMEAPP >= 0x22051500
+				Renderer.drawCustomSprite(portrait, px - 40, py - ((Mods.isModActive("Data Select Character Sprites - MAIN") && System.getGlobalVariableValueByName("MenuStyle.dataSelect") == 0) ? 128 : 120), 0, SPRITE_FLAG_PRIO, renderQueue)
+			#endif
+			#if GAMEAPP <= 0x22050800
+				Renderer.drawCustomSprite(portrait, px - 40, py - 120, 0, SPRITE_FLAG_PRIO, renderQueue)
+				#endif
+			}
+		}
+	}
+	
+	if (global.xtrachar == 0x13)
+	{
+		if (global.zone_act.apparent == 0x0600 && Mods.isModActive("Stone 3 A.I.R."))
+		{
+			if (objA0.update_address == 0x21030a)
+			{
+				A1 = 0xffffb000
+				Renderer.drawSprite("character_slot19_0x48", px, py, 0x80, flags, 0xa000 - objA1.sprite_priority, 0, 255)
+				return true
+			}
+		}
+		
+		if (objA0.update_address == 0x212250)
+		{
+			Renderer.drawCustomSprite("cork_fang", px, py, 0x00, flags, renderQueue)
+			return true
+		}
+		
+		if (objA0.update_address == 0x212260)
+		{
+			u64 key = stringformat("dust_%d", objA0.value2f)
+			if (Renderer.hasCustomSprite(key))
+			{
+				Renderer.drawCustomSprite(key, px, py, 0, flags, renderQueue)
+				return true
+			}
+		}
+		
+		if (objA0.update_address == 0x0837b2 && global.xtrachar == 0x13) //SIGNPOST
+		{
+			if (objA0.animation.sprite == 0x02)
+			{
+				u8 atex = 0x40 + 0x20 * getMainCharacter()
+				u64 key = "goal_fang"
+				Renderer.drawCustomSprite(key, px, py, atex, prioFlag ? SPRITE_FLAG_PRIO : 0, renderQueue)
+				return true
+			}
+		}
+		
+		if (objA0.update_address == 0x02dd98 && global.xtrachar == 0x13)
+		{
+			if (objA0.animation.sprite >= 0x13 && objA0.animation.sprite <= 0x16 && global.xtrachar == 0x13)
+			{
+				u8 atex = 0x40 + 0x20 * getMainCharacter()
+				s16 px2 = px + 0x55
+				Renderer.drawCustomSprite("fang_text", px2, py + 0x8, atex, 0x40, renderQueue)
+				return true
+			}
+		}
+		
+		if (gameMode == 0x48 || gameMode == 0x0c && global.xtrachar == 0x13)	// Blue Spheres results + fade to main game afterwards
+		{
+			// Blue Spheres results texts
+			if ((objA0.update_address == 0x02ea50 || objA0.update_address == 0x02ec1e || objA0.update_address == 0x02dd98))
+			{
+				if (objA0.animation.sprite == 0x13 || objA0.animation.sprite == 0x16)
+				{
+					Renderer.drawCustomSprite("fang_text", px + ((objA0.animation.sprite == 0x13) ? 0x19 : 0x35), py + 0x8, 0x40, SPRITE_FLAG_PRIO, renderQueue)
+					return true
+				}
+			}
+		}
+		
+		if (gameMode == 0x34 || gameMode == 0x48 || gameMode == 0x2c || gameMode == 0x30 || global.game_mode == 0x85 || global.game_mode == 0x87) && ((global.xtrachar == 0x13)) //Just check for Fang, thanks!
+		{
+			if (bluespheres.xtrachar)
+			{
+				if (char.animation.sprite >= 0xb1 && char.animation.sprite <= 0xb4 && objA0.update_address != 0x04e202 && objA0.update_address != 0x04e2f0)
+				{
+					u64 key = "dataSel_slot19"
+						Renderer.drawCustomSprite(key, px, py, 0x00, flags, renderQueue + 1)
+					return true
+				}
+			}
+			
+			if (global.characters == CHARS_KNUCKLES_ALONE && useKnucklesAndTails && objA0.update_address == 0x00927a)
+			{
+				#if GAMEAPP >= 0x22051500
+					if (israypartner)
+						return base.Standalone.onWriteToSpriteTable(px, py, renderQueue)
+				#endif
+				u8 character = getSecondCharacter()
+				u8 atex = (character == CHARACTER_TAILS) ? 0x10 : 0x00
+				u64 paletteKey = (character == CHARACTER_SONIC) ? "bluesphere_palette_sonic" : (character == CHARACTER_TAILS) ? "bluesphere_palette_tails" : "bluesphere_palette_knuckles"
+				u64 key = stringformat((character == CHARACTER_SONIC) ? "bluesphere_sonic_0x%02x" : (character == CHARACTER_TAILS) ? "bluesphere_tails_0x%02x" : "bluesphere_knuckles_0x%02x", objA0.animation.sprite)
+				u16 numColors = System.loadExternalPaletteData(paletteKey, 0, 0x800000, 0x20)
+				if (numColors > 0)
+				{
+					u32 dest = 0x802180 + character * 0x40
+					for (u16 i = 0; i < numColors; ++i)
+					{
+						u16[dest + i * 2] = packColor(u32[0x800000 + i * 4])
+					}
+				} 
+				if (Renderer.hasCustomSprite(key))
+				{
+					if (System.hasExternalPaletteData(paletteKey, 0))
+					{
+						atex = 0x40 + character * 0x20
+					}
+				}
+				else
+				{
+					if (character == CHARACTER_SONIC)
+						key = Renderer.setupCustomCharacterSprite(0x0aaa7c, 0x0abe14, objA0.mapping_offset, objA0.animation.sprite, 0x00)
+					else if (character == CHARACTER_TAILS)
+						key = Renderer.setupCustomCharacterSprite(0x28f95a, 0x2908d2, objA0.mapping_offset, objA0.animation.sprite, 0x10)
+					else
+						key = Renderer.setupCustomCharacterSprite(0x0abf22, 0x0ad31a, objA0.mapping_offset, objA0.animation.sprite, 0x00)
+				}
+				Renderer.drawCustomSprite(key, px, py, atex, prioFlag ? SPRITE_FLAG_PRIO : 0, renderQueue)
+				return true
+			}
+		}
+		
+		if (objA0.update_address == 0x25f85c)
+		{
+			Renderer.drawCustomSprite(stringformat("fang_laugh_%d", ((level.framecounter << 1 & 0x10) ? 2 : 1)), px, py, 0x80, SPRITE_FLAG_PRIO, renderQueue)
+			//Renderer.drawCustomSprite("dataSel_slot19", px, py, 0x00, SPRITE_FLAG_PRIO, renderQueue)
+			return true
+		}
+	}
+
+	return base.Standalone.onWriteToSpriteTable(px, py, renderQueue)
+}
+
+global u8 FangPalette
+function u64 getCharacterPaletteKey(u8 character)
+{
+	u8 gameMode = global.game_mode & 0x7f
+	if (global.xtrachar == 0x13 && character == CHARACTER_KNUCKLES && gameMode != 0x4c && gameMode != 0x44 && gameMode != 0x2c && gameMode != 0x30)
+	{
+		return getExtraCharacterPaletteKey(0x19)
+	}
+	
+	return base.getCharacterPaletteKey(character)
+}
+
+// Returns the palette key of the specified extra character.
+function string getExtraCharacterPaletteKey(u8 xtrachar)
+{
+	if (xtrachar == 0x19)
+	{
+		return (FangPalette == 0) ? "slot19palette" : (FangPalette == 1) ? "slot19stt" : (FangPalette == 2) ? "slot19srb2" : "slot19fighters"
+	}
+	
+	// Return the base function
+	return base.getExtraCharacterPaletteKey(xtrachar)
+}
